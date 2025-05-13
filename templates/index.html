@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Monthly Sales Dashboard</title>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gridstack@9.2.0/dist/gridstack-all.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/gridstack@9.2.0/dist/gridstack.min.css" rel="stylesheet"/>
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: Arial, sans-serif;
+      overflow: auto;
+    }
+
+    header {
+      background-color: #f5f5f5;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-sizing: border-box;
+      border-bottom: 1px solid #ccc;
+    }
+
+    header select, header button {
+      font-size: 14px;
+      padding: 5px 10px;
+      margin-left: 10px;
+    }
+
+    .plot-control {
+      padding: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #fafafa;
+      border-bottom: 1px solid #ddd;
+    }
+
+    .plot-control select {
+      padding: 5px;
+    }
+
+    .grid-stack {
+      min-height: 100vh;
+      background: #f9f9f9;
+      padding: 10px;
+    }
+
+    .grid-stack-item-content {
+      background-color: white;
+      border: 1px solid #ccc;
+      padding: 8px;
+      overflow: auto;
+      position: relative;
+    }
+
+    .remove-btn {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      background-color: #ff4d4f;
+      border: none;
+      color: white;
+      padding: 2px 6px;
+      cursor: pointer;
+      font-size: 14px;
+      border-radius: 50%;
+      z-index: 10;
+    }
+
+    h1 {
+      font-size: 20px;
+      margin: 0;
+    }
+
+    .add-chart {
+      margin-left: 15px;
+      padding: 5px 10px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Monthly Sales Dashboard</h1>
+    <div>
+      <label for="month">Month:</label>
+      <select id="month">
+        {% for num, name in months.items() %}
+          <option value="{{ num }}">{{ name }}</option>
+        {% endfor %}
+      </select>
+
+      <label for="plotType">Plot Type:</label>
+      <select id="plotType">
+        <option value="all">All</option>
+        <option value="pie">Pie Only</option>
+        <option value="bar">Store Sales Only</option>
+        <option value="daily">Daily Sales Only</option>
+      </select>
+
+      <button onclick="loadCharts()">Update</button>
+      <button class="add-chart" onclick="addNewChart()">Add Chart</button>
+    </div>
+  </header>
+
+  <div class="plot-control">
+    <label for="sales_plot_type">Revenue:</label>
+    <select id="sales_plot_type">
+      <option value="line">Line</option>
+      <option value="bar">Bar</option>
+      <option value="hist">Histogram</option>
+      <option value="kde">KDE</option>
+    </select>
+
+    <label for="orders_plot_type">Orders:</label>
+    <select id="orders_plot_type">
+      <option value="line">Line</option>
+      <option value="bar">Bar</option>
+      <option value="hist">Histogram</option>
+      <option value="kde">KDE</option>
+    </select>
+
+    <label for="quantity_plot_type">Quantity:</label>
+    <select id="quantity_plot_type">
+      <option value="line">Line</option>
+      <option value="bar">Bar</option>
+      <option value="hist">Histogram</option>
+      <option value="kde">KDE</option>
+    </select>
+  </div>
+
+  <div class="grid-stack" id="dashboard-grid">
+    <div class="grid-stack-item" gs-w="4" gs-h="3">
+      <div class="grid-stack-item-content" id="sales-line"></div>
+    </div>
+    <div class="grid-stack-item" gs-w="4" gs-h="3">
+      <div class="grid-stack-item-content" id="orders-line"></div>
+    </div>
+    <div class="grid-stack-item" gs-w="4" gs-h="3">
+      <div class="grid-stack-item-content" id="quantity-line"></div>
+    </div>
+    <div class="grid-stack-item" gs-w="4" gs-h="3">
+      <div class="grid-stack-item-content" id="pie-chart"></div>
+    </div>
+    <div class="grid-stack-item" gs-w="4" gs-h="3">
+      <div class="grid-stack-item-content" id="bar-chart"></div>
+    </div>
+    <div class="grid-stack-item" gs-w="4" gs-h="3">
+      <div class="grid-stack-item-content" id="daily-chart"></div>
+    </div>
+    <div class="grid-stack-item" gs-w="4" gs-h="3">
+      <div class="grid-stack-item-content" id="footfall-chart"></div>
+    </div>
+  </div>
+
+  <script>
+    let grid;
+
+    function loadCharts() {
+      const month = $("#month").val();
+      const plotType = $("#plotType").val();
+      const salesType = $("#sales_plot_type").val();
+      const ordersType = $("#orders_plot_type").val();
+      const qtyType = $("#quantity_plot_type").val();
+
+      $.ajax({
+        url: "/get_data",
+        type: "POST",
+        contentType: "application/json",
+        data: JSON.stringify({
+          month: month,
+          plotType: plotType,
+          sales_plot: salesType,
+          orders_plot: ordersType,
+          quantity_plot: qtyType
+        }),
+        success: function (data) {
+          $("#sales-line").html(data.sales_line);
+          $("#orders-line").html(data.orders_line);
+          $("#quantity-line").html(data.quantity_line);
+          $("#pie-chart").html(data.pie_chart || "");
+          $("#bar-chart").html(data.bar_chart || "");
+          $("#daily-chart").html(data.daily_sales_chart || "");
+          $("#footfall-chart").html(data.footfall_chart);
+        },
+        error: function (err) {
+          console.error("Error:", err);
+          $("#footfall-chart").text("Error loading charts.");
+        }
+      });
+    }
+
+    function addNewChart() {
+      const id = `custom-${Date.now()}`;
+      const widget = document.createElement("div");
+      widget.className = "grid-stack-item";
+      widget.setAttribute("gs-w", "4");
+      widget.setAttribute("gs-h", "3");
+
+      const content = document.createElement("div");
+      content.className = "grid-stack-item-content";
+      content.id = id;
+
+      const removeBtn = document.createElement("button");
+      removeBtn.className = "remove-btn";
+      removeBtn.innerText = "×";
+      removeBtn.onclick = () => grid.removeWidget(widget);
+
+      content.appendChild(removeBtn);
+      content.innerHTML += `<p style="padding: 15px;">Custom Chart Widget (${id})</p>`;
+      widget.appendChild(content);
+
+      grid.addWidget(widget);
+    }
+
+    $(function () {
+      grid = GridStack.init({ float: true, resizable: { handles: 'all' } });
+      loadCharts();
+
+      $("#sales_plot_type, #orders_plot_type, #quantity_plot_type").on("change", loadCharts);
+    });
+  </script>
+</body>
+</html>
